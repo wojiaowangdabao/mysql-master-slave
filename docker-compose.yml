@@ -83,7 +83,7 @@ services:
       docker-entrypoint.sh mysqld &
 
       # 等待主节点和MySQL服务启动
-      until mysql -uroot -hlocalhost -e \"SELECT 1\" > /dev/null 2>&1; do
+      until mysql -uroot -hlocalhost -p\$MYSQL_ROOT_PASSWORD -e \"SELECT 1\" > /dev/null 2>&1; do
         sleep 5
         echo \" 等待主节点和MySQL服务启动 \"
       done
@@ -145,7 +145,7 @@ services:
       docker-entrypoint.sh mysqld &
 
       # 等待主节点和MySQL服务启动
-      until mysql -uroot -hlocalhost -e \"SELECT 1\" > /dev/null 2>&1; do
+      until mysql -uroot -hlocalhost -p\$MYSQL_ROOT_PASSWORD -e \"SELECT 1\" > /dev/null 2>&1; do
         sleep 5
         echo \" 等待主节点和MySQL服务启动 \"
       done
