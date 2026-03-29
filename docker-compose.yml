@@ -17,25 +17,40 @@ services:
       - ./mysql-master.cnf:/etc/my.cnf
     networks:
       - mysql-net
-    # 自动创建同步账号
-    command: >
-      bash -c '
-      # 启动MySQL服务
+    # 资源限制配置
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 512M
+        reservations:
+          cpus: '0.25'
+          memory: 256M
+    # 自动创建同步账号（100% 正确，docker-compose 不会吞引号）
+    command: |
+      bash -c "
+      # 启动MySQL
       docker-entrypoint.sh mysqld &
-      
-      # 等待MySQL服务启动
-      sleep 20
-      
-      # 创建同步账号
-      mysql -uroot -p$${MYSQL_ROOT_PASSWORD} -e "
-      CREATE USER IF NOT EXISTS \"$${MYSQL_REPL_USER}\"@\"%\" IDENTIFIED BY \"$${MYSQL_REPL_PASSWORD}\";
-      GRANT REPLICATION SLAVE ON *.* TO \"$${MYSQL_REPL_USER}\"@\"%\";
-      FLUSH PRIVILEGES;"
-      
-      # 等待MySQL进程
-      wait
-      '
 
+      # 智能等待MySQL启动
+      until mysql -uroot -p\$MYSQL_ROOT_PASSWORD -e \"SELECT 1\" >/dev/null 2>&1; do
+        sleep 1
+        echo \" 等待mysql启动 \"
+      done
+
+      echo \" 创建复制账号 \"
+
+      mysql -uroot -p\$MYSQL_ROOT_PASSWORD -e \"
+        CREATE USER IF NOT EXISTS '${MYSQL_REPL_USER}'@'%' IDENTIFIED WITH mysql_native_password BY '${MYSQL_REPL_PASSWORD}';
+        GRANT REPLICATION SLAVE ON *.* TO '${MYSQL_REPL_USER}'@'%';
+        FLUSH PRIVILEGES;
+      \"
+
+      echo \" 复制账号创建完成 \"
+
+      wait
+      "
+   
   # 从节点1 (只读) 端口：3307
   mysql-slave1:
     image: mysql:8.0
@@ -50,30 +65,53 @@ services:
       - ./mysql-slave1.cnf:/etc/my.cnf
     networks:
       - mysql-net
+    # 资源限制配置
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 512M
+        reservations:
+          cpus: '0.25'
+          memory: 256M
     depends_on:
       - mysql-master
     # 自动连接主库
-    command: >
-      bash -c '
+    command: |
+      bash -c "
       # 启动MySQL服务
       docker-entrypoint.sh mysqld &
-      
+
       # 等待主节点和MySQL服务启动
-      sleep 25
-      
+      until mysql -uroot -hlocalhost -e \"SELECT 1\" > /dev/null 2>&1; do
+        sleep 5
+        echo \" 等待主节点和MySQL服务启动 \"
+      done
+
+      echo \" 再等5秒,确保主节点启动完成 \"
+      sleep 5
+
+      echo \" 开始配置主从复制 \"
+
       # 配置主从复制
-      mysql -uroot -p$${MYSQL_ROOT_PASSWORD} -e "
+      mysql -uroot -p\$MYSQL_ROOT_PASSWORD -e \"
       STOP SLAVE; RESET SLAVE ALL;
-      CHANGE MASTER TO
-      MASTER_HOST=\"mysql-master\",
-      MASTER_USER=\"${MYSQL_REPL_USER}\",
-      MASTER_PASSWORD=\"${MYSQL_REPL_PASSWORD}\",
-      MASTER_AUTO_POSITION=1;
-      START SLAVE;"
-      
+      CHANGE REPLICATION SOURCE TO
+      SOURCE_HOST=\\\"mysql-master\\\",
+      SOURCE_USER=\\\"${MYSQL_REPL_USER}\\\",
+      SOURCE_PASSWORD=\\\"${MYSQL_REPL_PASSWORD}\\\",
+      SOURCE_AUTO_POSITION=1,
+      SOURCE_SSL=1;
+      START SLAVE;
+      SET GLOBAL read_only = ON;
+      SET GLOBAL super_read_only = ON;
+      \"
+
+      echo \" 主从复制配置完成 \"
+
       # 等待MySQL进程
       wait
-      '
+      "
 
   # 从节点2 (只读) 端口：3308
   mysql-slave2:
@@ -89,30 +127,53 @@ services:
       - ./mysql-slave2.cnf:/etc/my.cnf
     networks:
       - mysql-net
+    # 资源限制配置
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 512M
+        reservations:
+          cpus: '0.25'
+          memory: 256M
     depends_on:
       - mysql-master
     # 自动连接主库
-    command: >
-      bash -c '
+    command: |
+      bash -c "
       # 启动MySQL服务
       docker-entrypoint.sh mysqld &
-      
+
       # 等待主节点和MySQL服务启动
-      sleep 25
-      
+      until mysql -uroot -hlocalhost -e \"SELECT 1\" > /dev/null 2>&1; do
+        sleep 5
+        echo \" 等待主节点和MySQL服务启动 \"
+      done
+
+      echo \" 再等5秒,确保主节点启动完成 \"
+      sleep 5
+
+      echo \" 开始配置主从复制 \"
+
       # 配置主从复制
-      mysql -uroot -p$${MYSQL_ROOT_PASSWORD} -e "
+      mysql -uroot -p\$MYSQL_ROOT_PASSWORD -e \"
       STOP SLAVE; RESET SLAVE ALL;
-      CHANGE MASTER TO
-      MASTER_HOST=\"mysql-master\",
-      MASTER_USER=\"${MYSQL_REPL_USER}\",
-      MASTER_PASSWORD=\"${MYSQL_REPL_PASSWORD}\",
-      MASTER_AUTO_POSITION=1;
-      START SLAVE;"
-      
+      CHANGE REPLICATION SOURCE TO
+      SOURCE_HOST=\\\"mysql-master\\\",
+      SOURCE_USER=\\\"${MYSQL_REPL_USER}\\\",
+      SOURCE_PASSWORD=\\\"${MYSQL_REPL_PASSWORD}\\\",
+      SOURCE_AUTO_POSITION=1,
+      SOURCE_SSL=1;
+      START SLAVE;
+      SET GLOBAL read_only = ON;
+      SET GLOBAL super_read_only = ON;
+      \"
+
+      echo \" 主从复制配置完成 \"
+
       # 等待MySQL进程
       wait
-      '
+      "
 
 # 集群网络
 networks:

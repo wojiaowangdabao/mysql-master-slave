@@ -1,28 +1,38 @@
+# MySQL服务器配置组标识
 [mysqld]
-# 从节点2唯一标识
+
+# 服务器唯一标识ID，从节点2设置为3
 server-id=3
 
-# 中继日志配置
+# 启用中继日志，日志文件前缀为relay-bin，用于主从复制
 relay-log=relay-bin
 
-# 只读配置
-read_only=1
-super_read_only=1
+# 设置服务器为只读模式，防止直接写入
+# read_only=1
+# 设置超级用户也为只读模式，增强安全性
+# super_read_only=1
 
-# GTID复制配置
+# 启用GTID（全局事务标识符）复制模式
 gtid_mode=ON
+# 强制GTID一致性，确保事务的原子性和一致性
 enforce_gtid_consistency=ON
 
-# 内存配置
+# InnoDB缓冲池大小，用于缓存数据和索引
 innodb_buffer_pool_size=64M
+# MyISAM表的索引缓存大小
 key_buffer_size=16M
+# 内存临时表的最大大小
 tmp_table_size=16M
+# 堆表的最大大小
 max_heap_table_size=16M
 
-# 连接配置
+# 允许的最大并发连接数
 max_connections=50
+# 线程缓存大小，减少线程创建和销毁的开销
 thread_cache_size=5
 
-# 日志配置
+# InnoDB重做日志文件大小
 innodb_log_file_size=64M
+# 事务提交时日志刷新策略：2表示写入OS缓存，系统崩溃可能丢失数据，但性能较高
 innodb_flush_log_at_trx_commit=2
+
