@@ -178,7 +178,9 @@ services:
 # 集群网络
 networks:
   mysql-net:
+    name: mysql-net
     driver: bridge
+    external: false
 
 # 数据持久化卷
 volumes:
