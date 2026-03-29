@@ -1,0 +1,25 @@
+[mysqld]
+# 中继日志配置
+relay-log=relay-bin
+
+# 只读配置
+read_only=1
+super_read_only=1
+
+# GTID复制配置
+gtid_mode=ON
+enforce_gtid_consistency=ON
+
+# 内存配置
+innodb_buffer_pool_size=64M
+key_buffer_size=16M
+tmp_table_size=16M
+max_heap_table_size=16M
+
+# 连接配置
+max_connections=50
+thread_cache_size=5
+
+# 日志配置
+innodb_log_file_size=64M
+innodb_flush_log_at_trx_commit=2

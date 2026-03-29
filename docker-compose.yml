@@ -1,0 +1,126 @@
+name: mysql-master-slave
+
+services:
+  # 主节点 (写入节点) 端口：3306
+  mysql-master:
+    image: mysql:8.0
+    container_name: mysql-master
+    restart: always
+    environment:
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
+      MYSQL_REPL_USER: ${MYSQL_REPL_USER}
+      MYSQL_REPL_PASSWORD: ${MYSQL_REPL_PASSWORD}
+    ports:
+      - "3306:3306"
+    volumes:
+      - mysql-master-data:/var/lib/mysql
+      - ./mysql-master.cnf:/etc/my.cnf
+    networks:
+      - mysql-net
+    # 自动创建同步账号
+    command: >
+      bash -c '
+      # 启动MySQL服务
+      docker-entrypoint.sh mysqld &
+      
+      # 等待MySQL服务启动
+      sleep 20
+      
+      # 创建同步账号
+      mysql -uroot -p$${MYSQL_ROOT_PASSWORD} -e "
+      CREATE USER IF NOT EXISTS \"$${MYSQL_REPL_USER}\"@\"%\" IDENTIFIED BY \"$${MYSQL_REPL_PASSWORD}\";
+      GRANT REPLICATION SLAVE ON *.* TO \"$${MYSQL_REPL_USER}\"@\"%\";
+      FLUSH PRIVILEGES;"
+      
+      # 等待MySQL进程
+      wait
+      '
+
+  # 从节点1 (只读) 端口：3307
+  mysql-slave1:
+    image: mysql:8.0
+    container_name: mysql-slave1
+    restart: always
+    environment:
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
+    ports:
+      - "3307:3306"
+    volumes:
+      - mysql-slave1-data:/var/lib/mysql
+      - ./mysql-slave1.cnf:/etc/my.cnf
+    networks:
+      - mysql-net
+    depends_on:
+      - mysql-master
+    # 自动连接主库
+    command: >
+      bash -c '
+      # 启动MySQL服务
+      docker-entrypoint.sh mysqld &
+      
+      # 等待主节点和MySQL服务启动
+      sleep 25
+      
+      # 配置主从复制
+      mysql -uroot -p$${MYSQL_ROOT_PASSWORD} -e "
+      STOP SLAVE; RESET SLAVE ALL;
+      CHANGE MASTER TO
+      MASTER_HOST=\"mysql-master\",
+      MASTER_USER=\"${MYSQL_REPL_USER}\",
+      MASTER_PASSWORD=\"${MYSQL_REPL_PASSWORD}\",
+      MASTER_AUTO_POSITION=1;
+      START SLAVE;"
+      
+      # 等待MySQL进程
+      wait
+      '
+
+  # 从节点2 (只读) 端口：3308
+  mysql-slave2:
+    image: mysql:8.0
+    container_name: mysql-slave2
+    restart: always
+    environment:
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
+    ports:
+      - "3308:3306"
+    volumes:
+      - mysql-slave2-data:/var/lib/mysql
+      - ./mysql-slave2.cnf:/etc/my.cnf
+    networks:
+      - mysql-net
+    depends_on:
+      - mysql-master
+    # 自动连接主库
+    command: >
+      bash -c '
+      # 启动MySQL服务
+      docker-entrypoint.sh mysqld &
+      
+      # 等待主节点和MySQL服务启动
+      sleep 25
+      
+      # 配置主从复制
+      mysql -uroot -p$${MYSQL_ROOT_PASSWORD} -e "
+      STOP SLAVE; RESET SLAVE ALL;
+      CHANGE MASTER TO
+      MASTER_HOST=\"mysql-master\",
+      MASTER_USER=\"${MYSQL_REPL_USER}\",
+      MASTER_PASSWORD=\"${MYSQL_REPL_PASSWORD}\",
+      MASTER_AUTO_POSITION=1;
+      START SLAVE;"
+      
+      # 等待MySQL进程
+      wait
+      '
+
+# 集群网络
+networks:
+  mysql-net:
+    driver: bridge
+
+# 数据持久化卷
+volumes:
+  mysql-master-data:
+  mysql-slave1-data:
+  mysql-slave2-data:
