@@ -21,10 +21,10 @@ services:
     deploy:
       resources:
         limits:
-          cpus: '0.5'
+          cpus: '0.2'
           memory: 512M
         reservations:
-          cpus: '0.25'
+          cpus: '0.2'
           memory: 256M
     # 自动创建同步账号（100% 正确，docker-compose 不会吞引号）
     command: |
